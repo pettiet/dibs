@@ -52,6 +52,7 @@ header.top { background: var(--header); color: #fff; padding: calc(12px + env(sa
 header.top .wrap { display: flex; align-items: center; gap: 12px; }
 .brand { font-family: "Fraunces", Georgia, serif; font-weight: 800; font-size: 26px; line-height: 1; }
 .brand small { display: block; font: 600 13px/1.3 -apple-system, system-ui, sans-serif; opacity: .75; margin-top: 3px; }
+.helpbtn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: #fff; color: var(--header); font-size: 20px; font-weight: 900; cursor: pointer; flex: 0 0 auto; }
 .me-chip { margin-left: auto; background: rgba(255,255,255,.14); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 15px; white-space: nowrap; }
 
 nav.tabs {
@@ -182,7 +183,8 @@ select.in { appearance: none; -webkit-appearance: none; background-image: linear
 .togs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 .tog { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 14px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .tog.on { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
-.lookup { font-size: 14px; color: var(--green); margin-top: 5px; min-height: 0; }
+.lookup { font-size: 14px; color: var(--muted); margin-top: 5px; min-height: 0; }
+.lookup.hit { color: var(--green); font-weight: 700; }
 .lookup:empty { display: none; }
 .remove { display: block; margin: 18px auto 0; color: var(--red); }
 
@@ -214,6 +216,24 @@ ol.how li { margin-bottom: 10px; }
 .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 14px; font-weight: 700; z-index: 60; max-width: 90vw; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .toast.err { background: var(--red); color: #fff; }
 @media (min-width: 820px) { .toast { bottom: 30px; } }
+
+/* ---------- guided tour ---------- */
+.tour { position: fixed; inset: 0; z-index: 70; }
+.tour.plain { background: rgba(10,15,12,.6); }
+.tour-ring { position: fixed; border-radius: 18px; box-shadow: 0 0 0 4px #fff, 0 0 0 9999px rgba(10,15,12,.6); pointer-events: none; transition: all .25s ease; }
+.tour-arrow { position: fixed; width: 40px; height: 54px; animation: bob 1s ease-in-out infinite; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
+.tour-arrow.up { transform: rotate(180deg); animation-name: bobup; }
+@keyframes bob { 50% { translate: 0 8px; } }
+@keyframes bobup { 50% { translate: 0 -8px; } }
+.tour-bubble { position: fixed; background: var(--surface); color: var(--ink); border-radius: 20px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.tour-title { font-family: "Fraunces", Georgia, serif; font-size: 23px; font-weight: 600; margin-bottom: 8px; }
+.tour-text { font-size: 17px; line-height: 1.45; }
+.tour-dots { display: flex; gap: 6px; justify-content: center; margin: 16px 0 12px; }
+.tour-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.tour-dots span.on { background: var(--green); width: 22px; border-radius: 4px; }
+.tour-btns { display: flex; gap: 10px; }
+.tour-btns .btn { flex: 1; }
+.tour-btns .btn.wide { flex: 2; }
 </style>
 </head>
 <body>
@@ -224,7 +244,7 @@ ol.how li { margin-bottom: 10px; }
    SETTINGS: your Supabase project
    ================================================================ */
 const SUPABASE_URL = 'https://kdagizmxwgzalkbykuus.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_4DL6DpXOSPsQtZ-plVLCKg_b9L87cMC';   // <- paste your publishable key
+const SUPABASE_KEY = 'sb_publishable_4DL6DpXOSPsQtZ-plVLCKg_b9L87cMC';
 const PREVIEW_FUNCTION = 'preview';                     // link look-up function; '' turns it off
 /* ================================================================ */
 
@@ -281,9 +301,9 @@ async function boot() {
   const saved = lsGet('dibs.tab');
   if (['mine', 'shop', 'shopping'].includes(saved)) S.tab = saved;
   await refresh();
-  if (!lsGet('dibs.intro.' + S.me.id)) showIntro();
+  if (!lsGet('dibs.tour.' + S.me.id)) startTour();
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !document.querySelector('.scrim')) refresh(true); });
-  setInterval(() => { if (!document.hidden && !document.querySelector('.scrim')) refresh(true); }, 60000);
+  setInterval(() => { if (!document.hidden && !document.querySelector('.scrim') && tourStep < 0) refresh(true); }, 60000);
 }
 async function loadMe() {
   const d = await rpc('wl_me');
@@ -311,6 +331,7 @@ function render() {
     <header class="top"><div class="wrap">
       <div class="brand">Dibs<small>${esc(S.event?.name || 'Family wish list')}</small></div>
       <div class="me-chip">${esc(S.me.emoji)} ${esc(S.me.name)}</div>
+      <button class="helpbtn" data-act="tour" aria-label="Show me how this works">?</button>
     </div></header>
     <nav class="tabs">
       ${tab('mine', '📝', 'My List')}
@@ -320,6 +341,7 @@ function render() {
     <main class="wrap">${!S.event ? empty('🎄', 'No wish list is open right now', 'Check back soon.')
       : S.tab === 'mine' ? viewMine() : S.tab === 'shop' ? viewShop() : viewShopping()}</main>`;
   window.scrollTo(0, y);
+  if (tourStep >= 0) requestAnimationFrame(placeTour);
 }
 const empty = (big, title, sub) => `<div class="empty"><div class="big">${big}</div><p><strong>${esc(title)}</strong></p><p>${esc(sub || '')}</p></div>`;
 function renderNoKey(msg) {
@@ -556,19 +578,103 @@ if (window.visualViewport) {
   visualViewport.addEventListener('scroll', fitScrim);
 }
 
-function showIntro() {
-  lsSet('dibs.intro.' + S.me.id, '1');
-  openSheet({
-    title: `Hi ${esc(S.me.name)}! ${esc(S.me.emoji)}`,
-    body: `<ol class="how">
-      <li><strong>My List</strong>: add things you'd like.</li>
-      <li><strong>Shop</strong>: see everyone else's lists. Tap <strong>I'll get it</strong> on what you're buying.</li>
-      <li><strong>My Shopping</strong>: your checklist. Tick things off as you buy them.</li>
-    </ol>
-    <p>🤫 <strong>Your list stays a surprise.</strong> You'll never see who's getting what for you.</p>`,
-    foot: `<button class="btn primary" data-act="close">Got it</button>`,
-  });
+/* ----- guided tour: points at each tab ----- */
+let tourStep = -1;
+function tourSteps() {
+  const managed = S.people.filter(p => p.i_manage).map(p => p.name);
+  return [
+    { title: `Hi ${esc(S.me.name)}! ${esc(S.me.emoji)}`,
+      text: `Welcome to Dibs, our family wish list. Here's a quick tour. It only takes a few seconds.` },
+    { tab: 'mine', title: '📝 My List',
+      text: `This is <strong>your</strong> wish list. Tap <strong>Add a wish</strong> and paste a link from any store.${managed.length ? ` You can also switch to ${esc(managed.join(' & '))}'s list here.` : ''}<br><br>🤫 It stays a surprise. You'll never see who's buying what for you.` },
+    { tab: 'shop', title: '🎁 Shop',
+      text: `Everyone else's lists. Going to buy something? Tap the red <strong>I'll get it</strong> button so nobody else buys it too.` },
+    { tab: 'shopping', title: '🛍️ My Shopping',
+      text: `Everything you said you'd get, as a checklist. Tap the circle once you've bought it.` },
+    { target: '.helpbtn', title: 'That\'s it!',
+      text: `Tap this <strong>?</strong> any time to see this tour again.` },
+  ];
 }
+function startTour() {
+  lsSet('dibs.tour.' + S.me.id, '1');
+  closeSheet();
+  tourStep = 0;
+  showTourStep();
+}
+function endTour() {
+  tourStep = -1;
+  document.querySelectorAll('.tour').forEach(t => t.remove());
+  S.tab = 'mine'; S.shopPerson = null; lsSet('dibs.tab', 'mine');
+  render(); window.scrollTo(0, 0); refresh(true);
+}
+function showTourStep() {
+  const steps = tourSteps();
+  const st = steps[tourStep];
+  if (st.tab && S.tab !== st.tab) { S.tab = st.tab; S.shopPerson = null; render(); refresh(true).then(placeTour); }
+  window.scrollTo(0, 0);
+  document.querySelectorAll('.tour').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'tour';
+  const last = tourStep === steps.length - 1;
+  t.innerHTML = `
+    <div class="tour-ring"></div>
+    <svg class="tour-arrow" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 4v46M8 36l16 18 16-18" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="tour-bubble" role="dialog" aria-live="polite">
+      <div class="tour-title">${st.title}</div>
+      <div class="tour-text">${st.text}</div>
+      <div class="tour-dots">${steps.map((_, i) => `<span class="${i === tourStep ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="tour-btns">
+        ${tourStep > 0 ? `<button class="btn ghost" data-tour="back">Back</button>` : `<button class="btn ghost" data-tour="skip">Skip</button>`}
+        <button class="btn primary wide" data-tour="${last ? 'done' : 'next'}">${last ? 'Start using Dibs' : 'Next'}</button>
+      </div>
+    </div>`;
+  t.addEventListener('click', e => {
+    const b = e.target.closest('[data-tour]');
+    if (!b) return;
+    const a = b.dataset.tour;
+    if (a === 'next') { tourStep++; showTourStep(); }
+    else if (a === 'back') { tourStep--; showTourStep(); }
+    else endTour();
+  });
+  document.body.appendChild(t);
+  placeTour();
+}
+function placeTour() {
+  const t = document.querySelector('.tour');
+  if (!t) return;
+  const st = tourSteps()[tourStep];
+  const ring = t.querySelector('.tour-ring'), arrow = t.querySelector('.tour-arrow'), bub = t.querySelector('.tour-bubble');
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const sel = st.tab ? `nav.tabs [data-tab="${st.tab}"]` : st.target;
+  const el = sel && document.querySelector(sel);
+  const w = Math.min(360, vw - 32);
+  bub.style.width = w + 'px';
+  if (!el) {                                 // welcome step: centered card, no pointer
+    t.classList.add('plain');
+    ring.style.display = arrow.style.display = 'none';
+    bub.style.left = (vw - w) / 2 + 'px';
+    bub.style.top = Math.max(20, (vh - bub.offsetHeight) / 2) + 'px';
+    bub.style.bottom = 'auto';
+    return;
+  }
+  t.classList.remove('plain');
+  const r = el.getBoundingClientRect(), pad = 6;
+  Object.assign(ring.style, { display: 'block', left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px' });
+  const cx = r.left + r.width / 2;
+  const below = r.top < vh / 2;              // target near the top (desktop tabs, ? button) → bubble goes under it
+  arrow.style.display = 'block';
+  arrow.style.left = cx - 20 + 'px';
+  arrow.classList.toggle('up', below);
+  bub.style.left = Math.min(Math.max(cx - w / 2, 16), vw - w - 16) + 'px';
+  if (below) {
+    arrow.style.top = r.bottom + 10 + 'px'; arrow.style.bottom = 'auto';
+    bub.style.top = r.bottom + 72 + 'px'; bub.style.bottom = 'auto';
+  } else {
+    arrow.style.bottom = vh - r.top + 10 + 'px'; arrow.style.top = 'auto';
+    bub.style.bottom = vh - r.top + 72 + 'px'; bub.style.top = 'auto';
+  }
+}
+window.addEventListener('resize', () => tourStep >= 0 && placeTour());
 
 /* ----- add / edit form ----- */
 function itemForm(it, opts) {
@@ -582,11 +688,11 @@ function itemForm(it, opts) {
     form: true, title,
     body: `
       ${opts.secret ? `<p class="sub" style="margin:0 0 4px">${esc(opts.ownerName)} won't see this. It goes on your shopping list.</p>` : ''}
+      <label class="f">🔗 Got a link? Paste it here <span class="opt">(optional)</span></label>
+      <input class="in" name="url" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="From any store" value="${esc(it.url || '')}">
+      <div class="lookup" id="lookup">${it.id ? '' : 'We\'ll try to fill in the rest for you.'}</div>
       <label class="f">What is it?</label>
       <input class="in" name="title" maxlength="200" placeholder="e.g. Cozy robe" value="${esc(it.title || '')}">
-      <label class="f">Link <span class="opt">(optional)</span></label>
-      <input class="in" name="url" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="Paste from any store" value="${esc(it.url || '')}">
-      <div class="lookup" id="lookup"></div>
       <div class="row2">
         <div><label class="f">Price <span class="opt">(about)</span></label><input class="in" name="price" inputmode="decimal" placeholder="$" value="${it.price ?? ''}"></div>
         <div><label class="f">Size</label><input class="in" name="size" maxlength="80" value="${esc(it.size || '')}"></div>
@@ -615,7 +721,7 @@ function itemForm(it, opts) {
   const lookup = () => linkLookup(f.url.value, f, s.querySelector('#lookup'));
   f.url.addEventListener('paste', () => setTimeout(lookup, 50));
   f.url.addEventListener('change', lookup);
-  if (!it.id) setTimeout(() => f.title.focus(), 250);
+  if (!it.id && matchMedia('(pointer: fine)').matches) setTimeout(() => f.url.focus(), 250);
 
   f.onsubmit = async e => {
     e.preventDefault();
@@ -645,7 +751,7 @@ async function linkLookup(raw, f, el) {
   if (!/^https?:\/\//i.test(u) && /^[^\s/:]+\.[^\s]+/.test(u)) u = 'https://' + u;
   if (!safeUrl(u) || !PREVIEW_FUNCTION) return;
   const seq = ++lookupSeq;
-  el.textContent = 'Looking that up…';
+  el.textContent = 'Looking that up…'; el.classList.remove('hit');
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/${PREVIEW_FUNCTION}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -658,7 +764,8 @@ async function linkLookup(raw, f, el) {
     if (d.title && !f.title.value.trim()) { f.title.value = d.title.slice(0, 200); filled.push('name'); }
     if (d.price && !f.price.value.trim()) { f.price.value = d.price; filled.push('price'); }
     if (d.image && !f.image_url.value.trim()) { f.image_url.value = d.image; filled.push('picture'); }
-    el.textContent = filled.length ? `✓ Filled in the ${filled.join(', ')}` : '';
+    el.textContent = filled.length ? `✓ Filled in the ${filled.join(', ')}. Check it looks right.` : 'Couldn\'t read that store. Just type it in below.';
+    el.classList.toggle('hit', filled.length > 0);
   } catch { if (seq === lookupSeq) el.textContent = ''; }
 }
 
@@ -825,6 +932,7 @@ document.addEventListener('click', async e => {
       closeSheet(); await refresh(); break;
     }
     case 'close': closeSheet(); break;
+    case 'tour': startTour(); break;
   }
 });
 document.addEventListener('keydown', e => {

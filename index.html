@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dibs</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dibs">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1F4D3A">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+/* ================================================================
+   SETTINGS live in the <script> near the bottom (SUPABASE_URL etc.)
+   ================================================================ */
+:root {
+  --bg: #FBF7F0; --surface: #FFFFFF; --surface-2: #F3EDE2;
+  --ink: #1E2421; --muted: #65706A; --line: #E4DCCD;
+  --green: #1F4D3A; --green-soft: #E3EDE7;
+  --red: #B3263E; --red-soft: #F8E3E6;
+  --gold: #B8862B; --gold-soft: #F7EDD6;
+  --shadow: 0 1px 2px rgba(30,36,33,.06), 0 4px 14px rgba(30,36,33,.06);
+  --header: #1F4D3A;
+  --radius: 16px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111814; --surface: #1A231E; --surface-2: #222D27;
+    --ink: #EEF2EF; --muted: #9DA9A2; --line: #2E3A33;
+    --green: #7FC4A0; --green-soft: #1F3329;
+    --red: #F07A8C; --red-soft: #3A1E24;
+    --gold: #E2B65A; --gold-soft: #3A3020;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+    --header: #18392B;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--green); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+/* header */
+header.top {
+  background: var(--header); color: #fff;
+  padding: calc(14px + env(safe-area-inset-top)) 0 14px;
+}
+header.top .wrap { display: flex; align-items: center; gap: 12px; }
+.brand { font-family: "Fraunces", Georgia, serif; font-weight: 800; font-size: 30px; letter-spacing: -.5px; line-height: 1; }
+.brand small { display: block; font: 600 13px/1.3 -apple-system, system-ui, sans-serif; opacity: .8; letter-spacing: 0; margin-top: 4px; }
+.me-chip { margin-left: auto; background: rgba(255,255,255,.14); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 15px; white-space: nowrap; }
+
+/* tabs */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+}
+nav.tabs button {
+  flex: 1; border: 0; background: none; padding: 6px 4px; border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; position: relative;
+}
+nav.tabs button .ico { font-size: 24px; line-height: 1.1; }
+nav.tabs button.on { color: var(--green); background: var(--green-soft); }
+.badge { position: absolute; top: 2px; left: 55%; background: var(--red); color: #fff; border-radius: 999px; font-size: 11px; min-width: 18px; height: 18px; line-height: 18px; padding: 0 5px; }
+@media (min-width: 820px) {
+  body { padding-bottom: 40px; }
+  nav.tabs { position: sticky; top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--line); justify-content: center; gap: 8px; padding: 8px; }
+  nav.tabs button { flex: 0 0 auto; flex-direction: row; gap: 8px; font-size: 16px; padding: 8px 18px; }
+  nav.tabs button .ico { font-size: 20px; }
+  .badge { position: static; }
+}
+
+main { padding-top: 18px; }
+h2 { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 26px; margin: 4px 0 4px; letter-spacing: -.3px; }
+h3 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 26px 0 10px; }
+.sub { color: var(--muted); margin: 0 0 14px; }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 10px 18px; border-radius: 14px; border: 0;
+  font-weight: 700; cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--green); color: #fff; }
+.btn.claim { background: var(--red); color: #fff; }
+.btn.ghost { background: var(--surface-2); color: var(--ink); }
+.btn.outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink); }
+.btn.small { min-height: 40px; padding: 6px 14px; font-size: 15px; border-radius: 12px; }
+.btn.block { width: 100%; }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary, :root:not([data-theme="light"]) .btn.claim { color: #111814; } }
+.linkbtn { background: none; border: 0; color: var(--green); font-weight: 600; padding: 8px 4px; cursor: pointer; }
+.iconbtn { background: var(--surface-2); border: 0; width: 40px; height: 40px; border-radius: 12px; font-size: 18px; cursor: pointer; }
+
+/* segmented */
+.seg { display: flex; gap: 6px; background: var(--surface-2); padding: 4px; border-radius: 14px; margin: 0 0 16px; overflow-x: auto; }
+.seg button { flex: 1; border: 0; background: none; padding: 9px 12px; border-radius: 10px; font-weight: 600; white-space: nowrap; cursor: pointer; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+/* cards */
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--line); }
+.item { display: flex; gap: 14px; padding: 14px; margin-bottom: 12px; position: relative; }
+.item.dim { opacity: .62; }
+.thumb { flex: 0 0 72px; height: 72px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; overflow: hidden; font-size: 30px; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb img.fav { width: 32px; height: 32px; object-fit: contain; }
+.item .body { flex: 1; min-width: 0; }
+.item .title { font-weight: 700; font-size: 18px; line-height: 1.3; word-wrap: break-word; }
+.item .title .star { color: var(--gold); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.chip { background: var(--surface-2); border-radius: 8px; padding: 2px 9px; font-size: 14px; font-weight: 600; }
+.chip.gold { background: var(--gold-soft); color: var(--gold); }
+.notes { color: var(--muted); font-size: 15px; margin: 6px 0 0; white-space: pre-wrap; word-wrap: break-word; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.status { font-size: 15px; font-weight: 600; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.status.taken { color: var(--muted); }
+.status.mine { color: var(--red); }
+.status.bought { color: var(--green); }
+.banner { border-radius: 12px; padding: 9px 12px; font-size: 15px; font-weight: 600; margin-top: 10px; }
+.banner.warn { background: var(--gold-soft); color: var(--gold); }
+.banner.secret { background: var(--green-soft); color: var(--green); margin: 0 0 8px; }
+.banner.gone { background: var(--red-soft); color: var(--red); }
+.order { display: flex; flex-direction: column; gap: 6px; }
+
+/* people grid */
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.person { padding: 16px 14px; text-align: left; cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
+.person .em { font-size: 34px; line-height: 1; }
+.person .nm { font-weight: 800; font-size: 19px; margin-top: 8px; }
+.person .ct { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.person.self { opacity: .55; }
+
+/* sizes card */
+.sizes { padding: 14px 16px; margin-bottom: 16px; }
+.sizes summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; align-items: center; gap: 8px; }
+.sizes summary::-webkit-details-marker { display: none; }
+.sizes summary .chev { margin-left: auto; color: var(--muted); transition: transform .2s; }
+.sizes[open] summary .chev { transform: rotate(90deg); }
+.sizes dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 12px 0 4px; font-size: 16px; }
+.sizes dt { color: var(--muted); }
+.sizes dd { margin: 0; font-weight: 600; word-wrap: break-word; }
+
+/* totals */
+.totals { display: flex; gap: 10px; margin-bottom: 8px; }
+.totals .t { flex: 1; padding: 12px; text-align: center; }
+.totals .n { font-size: 22px; font-weight: 800; }
+.totals .l { font-size: 13px; color: var(--muted); font-weight: 600; }
+.grp-head { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 10px; }
+.grp-head .nm { font-weight: 800; font-size: 19px; }
+.grp-head .sum { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 15px; }
+
+.empty { text-align: center; color: var(--muted); padding: 34px 16px; }
+.empty .big { font-size: 46px; }
+.hint { color: var(--muted); font-size: 14px; text-align: center; margin: 20px 0; }
+.back { margin: 0 0 6px -4px; }
+
+/* sheet (modal) */
+.scrim { position: fixed; inset: 0; background: rgba(10,15,12,.45); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--surface); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
+  border-radius: 22px 22px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  animation: up .2s ease-out;
+}
+@media (min-width: 620px) { .scrim { align-items: center; } .sheet { border-radius: 22px; } }
+@keyframes up { from { transform: translateY(30px); opacity: .5; } }
+.sheet h2 { margin-bottom: 14px; }
+label.f { display: block; font-weight: 700; font-size: 15px; margin: 14px 0 6px; }
+label.f .opt { color: var(--muted); font-weight: 500; }
+.in { width: 100%; border: 1.5px solid var(--line); background: var(--bg); border-radius: 12px; padding: 12px 14px; font-size: 17px; min-height: 50px; }
+.in:focus { outline: none; border-color: var(--green); }
+textarea.in { min-height: 84px; resize: vertical; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.toggle { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-weight: 600; cursor: pointer; }
+.toggle input { width: 24px; height: 24px; accent-color: var(--green); }
+.stepper { display: flex; align-items: center; gap: 12px; }
+.stepper .num { font-size: 22px; font-weight: 800; min-width: 34px; text-align: center; }
+.sheet .foot { display: flex; gap: 10px; margin-top: 22px; }
+.sheet .foot .btn { flex: 1; }
+.lookup { font-size: 14px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+.preview-img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; margin-top: 8px; }
+.emojis { display: flex; flex-wrap: wrap; gap: 6px; }
+.emojis button { font-size: 26px; width: 48px; height: 48px; border-radius: 12px; border: 2px solid transparent; background: var(--surface-2); cursor: pointer; }
+.emojis button.on { border-color: var(--green); }
+details.more summary { cursor: pointer; color: var(--green); font-weight: 700; margin-top: 16px; }
+
+/* toast */
+.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 14px; font-weight: 600; z-index: 60; max-width: 90vw; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.toast.err { background: var(--red); color: #fff; }
+@media (min-width: 820px) { .toast { bottom: 30px; } }
+
+.center { min-height: 70vh; display: grid; place-items: center; text-align: center; padding: 30px 20px; }
+.spinner { width: 34px; height: 34px; border: 4px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+ol.how { text-align: left; padding-left: 22px; margin: 14px 0; }
+ol.how li { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div id="app"><div class="center"><div class="spinner"></div></div></div>
+
+<script>
+/* ================================================================
+   SETTINGS: paste your Supabase project's values here
+   Supabase > Project Settings > API Keys (publishable key)
+   ================================================================ */
+const SUPABASE_URL = 'https://kdagizmxwgzalkbykuus.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4DL6DpXOSPsQtZ-plVLCKg_b9L87cMC';
+const PREVIEW_FUNCTION = 'preview';   // link look-up function name; '' turns it off
+/* ================================================================ */
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+const $app = document.getElementById('app');
+
+const S = {
+  key: null, me: null, event: null, people: [], households: [],
+  tab: 'mine', listFor: null, list: null,
+  shopPerson: null, shopList: null, availOnly: false,
+  shopScope: 'me', shopping: null,
+  flags: 0,
+};
+
+/* ---------------- helpers ---------------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null;
+const money = n => (n === null || n === undefined || n === '') ? '' :
+  Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: Number(n) % 1 ? 2 : 0 });
+const person = id => S.people.find(p => p.id === id);
+const first = s => esc(String(s).split(' ')[0]);
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+async function rpc(fn, args) {
+  const { data, error } = await db.rpc(fn, { p_key: S.key, ...args });
+  if (error) throw new Error(error.message || 'Something went wrong.');
+  return data;
+}
+
+let toastTimer;
+function toast(msg, err) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), err ? 4200 : 2400);
+}
+async function attempt(fn, okMsg) {
+  try { const r = await fn(); if (okMsg) toast(okMsg); return r; }
+  catch (e) { toast(e.message, true); throw e; }
+}
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+
+/* ---------------- boot ---------------- */
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  S.key = params.get('key') || lsGet('dibs.key');
+  if (!S.key) return renderNoKey();
+  if (params.get('key')) lsSet('dibs.key', S.key);
+  try {
+    await loadMe();
+  } catch (e) {
+    return renderNoKey(e.message);
+  }
+  S.listFor = S.me.id;
+  const saved = lsGet('dibs.tab');
+  if (saved && ['mine', 'shop', 'shopping'].includes(saved)) S.tab = saved;
+  await refresh();
+  if (!lsGet('dibs.intro.' + S.me.id)) showIntro();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(true); });
+  setInterval(() => { if (!document.hidden && !document.querySelector('.scrim')) refresh(true); }, 60000);
+}
+
+async function loadMe() {
+  const d = await rpc('wl_me');
+  S.me = d.me; S.event = d.event; S.people = d.people; S.households = d.households;
+}
+
+async function refresh(quiet) {
+  try {
+    await loadMe();
+    const jobs = [rpc('wl_shopping', { p_scope: S.shopScope }).then(d => S.shopping = d)];
+    if (S.tab === 'mine') jobs.push(rpc('wl_list', { p_owner: S.listFor }).then(d => S.list = d));
+    if (S.tab === 'shop' && S.shopPerson) jobs.push(rpc('wl_list', { p_owner: S.shopPerson }).then(d => S.shopList = d));
+    await Promise.all(jobs);
+  } catch (e) {
+    if (!quiet) toast(e.message, true);
+  }
+  render();
+}
+
+/* ---------------- render shell ---------------- */
+function render() {
+  if (!S.me) return;
+  const keepY = window.scrollY;
+  S.flags = (S.shopping?.rows || []).filter(r => r.mine && (r.changed || r.removed)).length;
+  const tab = (id, ico, label, badge) =>
+    `<button class="${S.tab === id ? 'on' : ''}" data-act="tab" data-tab="${id}">
+       <span class="ico">${ico}</span><span>${label}</span>${badge ? `<span class="badge">${badge}</span>` : ''}
+     </button>`;
+  $app.innerHTML = `
+    <header class="top"><div class="wrap">
+      <div class="brand">Dibs<small>${esc(S.event?.name || 'Family wish list')}</small></div>
+      <div class="me-chip">${esc(S.me.emoji)} ${esc(S.me.name)}</div>
+    </div></header>
+    <nav class="tabs">
+      ${tab('mine', '📝', 'My List')}
+      ${tab('shop', '🎁', 'Shop')}
+      ${tab('shopping', '🛍️', 'My Shopping', S.flags)}
+    </nav>
+    <main class="wrap">${!S.event ? emptyState('🎄', 'No wish list is open right now', 'Check back soon.')
+      : S.tab === 'mine' ? viewMine() : S.tab === 'shop' ? viewShop() : viewShopping()}</main>`;
+  window.scrollTo(0, keepY);
+}
+
+function emptyState(big, title, sub) {
+  return `<div class="empty"><div class="big">${big}</div><p><strong>${esc(title)}</strong></p><p>${esc(sub || '')}</p></div>`;
+}
+
+function renderNoKey(msg) {
+  $app.innerHTML = `<div class="center"><div>
+    <img src="icon.png" alt="" width="84" height="84" style="border-radius:20px">
+    <h2 style="margin-top:14px">Dibs</h2>
+    <p class="sub">${esc(msg || 'This is a private family wish list.')}</p>
+    <p>Open the personal link you were sent<br>(it ends in <code>?key=…</code>).</p>
+  </div></div>`;
+}
+
+/* ---------------- item pieces ---------------- */
+function thumb(it) {
+  const img = safeUrl(it.image_url), url = safeUrl(it.url);
+  if (img) return `<div class="thumb"><img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='🎁'"></div>`;
+  if (url && host(url)) return `<div class="thumb"><img class="fav" src="https://www.google.com/s2/favicons?domain=${esc(host(url))}&sz=64" alt="" loading="lazy" onerror="this.parentNode.textContent='🎁'"></div>`;
+  return `<div class="thumb">🎁</div>`;
+}
+function details(it) {
+  const c = [];
+  if (it.price !== null && it.price !== undefined) c.push(`<span class="chip">${money(it.price)}</span>`);
+  if (it.size) c.push(`<span class="chip">Size ${esc(it.size)}</span>`);
+  if (it.color) c.push(`<span class="chip">${esc(it.color)}</span>`);
+  if (it.qty === null) c.push(`<span class="chip">As many as you like</span>`);
+  else if (it.qty > 1) c.push(`<span class="chip">Wants ${it.qty}</span>`);
+  if (it.flexible) c.push(`<span class="chip gold">Anything similar is fine</span>`);
+  const url = safeUrl(it.url);
+  return `
+    <div class="title">${it.starred ? '<span class="star" title="Really wants this">★</span> ' : ''}${esc(it.title)}</div>
+    ${c.length ? `<div class="chips">${c.join('')}</div>` : ''}
+    ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
+    ${url ? `<div><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="linkbtn" style="padding-left:0">View at ${esc(host(url))} ↗</a></div>` : ''}`;
+}
+function claimSummary(it) {
+  const parts = (it.claims || []).map(c =>
+    `${c.mine ? 'You' : esc(c.name)}${c.qty > 1 ? ' ×' + c.qty : ''}${c.status === 'bought' ? ' (bought)' : ''}`);
+  return parts.join(', ');
+}
+
+/* ---------------- My List ---------------- */
+function viewMine() {
+  const managed = S.people.filter(p => p.i_manage);
+  const L = S.list;
+  const owner = person(S.listFor) || S.me;
+  const isMe = S.listFor === S.me.id;
+  let html = '';
+  if (managed.length) {
+    html += `<div class="seg">
+      <button class="${isMe ? 'on' : ''}" data-act="listfor" data-id="${S.me.id}">${esc(S.me.emoji)} My list</button>
+      ${managed.map(p => `<button class="${S.listFor === p.id ? 'on' : ''}" data-act="listfor" data-id="${p.id}">${esc(p.emoji)} ${esc(p.name)}'s list</button>`).join('')}
+    </div>`;
+  }
+  html += `<h2>${isMe ? 'My wish list' : esc(owner.name) + "'s wish list"}</h2>
+    <p class="sub">${isMe ? "Add anything you'd like. You'll never see who's getting what for you."
+      : `You're managing this list for ${esc(owner.name)}. You can still see what's been claimed.`}</p>`;
+  if (!L || L.person.id !== S.listFor) return html + `<div class="spinner"></div>`;
+  html += sizesCard(L.person, true);
+  html += `<button class="btn primary block" data-act="add" style="margin-bottom:18px">＋ Add a wish</button>`;
+  if (!L.items.length) {
+    html += emptyState('✨', 'Nothing here yet', isMe ? 'Tap "Add a wish" to start your list.' : `Add a few things for ${owner.name}.`);
+  } else {
+    html += L.items.map((it, i) => `
+      <div class="card item">
+        ${thumb(it)}
+        <div class="body">
+          ${details(it)}
+          ${!isMe && it.claims?.length ? `<div class="status taken">🎁 ${claimSummary(it)}</div>` : ''}
+          <div class="actions"><button class="btn ghost small" data-act="edit" data-id="${it.id}">Edit</button></div>
+        </div>
+        <div class="order">
+          <button class="iconbtn" data-act="move" data-id="${it.id}" data-dir="-1" ${i === 0 ? 'disabled style="opacity:.3"' : ''} aria-label="Move up">↑</button>
+          <button class="iconbtn" data-act="move" data-id="${it.id}" data-dir="1" ${i === L.items.length - 1 ? 'disabled style="opacity:.3"' : ''} aria-label="Move down">↓</button>
+        </div>
+      </div>`).join('');
+    html += `<p class="hint">Use the arrows to put your favorites at the top. Tap ★ in Edit for "really want this."</p>`;
+  }
+  return html;
+}
+
+const CARD_FIELDS = [
+  ['shirt', 'Shirt / top'], ['pants', 'Pants'], ['dress', 'Dress'], ['shoes', 'Shoes'],
+  ['hat', 'Hat'], ['ring', 'Ring'], ['colors', 'Favorite colors'], ['stores', 'Favorite stores'],
+  ['likes', 'Teams, hobbies, likes'], ['no', 'Please no'], ['other', 'Anything else'],
+];
+function sizesCard(p, editable) {
+  const card = p.card || {};
+  const rows = CARD_FIELDS.filter(([k]) => card[k]).map(([k, l]) => `<dt>${l}</dt><dd>${esc(card[k])}</dd>`).join('');
+  const who = editable ? (p.id === S.me.id ? 'My' : esc(p.name) + "'s") : esc(p.name) + "'s";
+  return `<details class="card sizes" ${!editable && rows ? 'open' : ''}>
+    <summary>📏 ${who} sizes &amp; favorites <span class="chev">›</span></summary>
+    ${rows ? `<dl>${rows}</dl>` : `<p class="sub" style="margin:10px 0 4px">${editable ? 'Nothing filled in yet. This helps people shop for you.' : 'Not filled in yet.'}</p>`}
+    ${editable ? `<button class="btn ghost small" data-act="editcard" style="margin-top:8px">Edit sizes &amp; favorites</button>` : ''}
+  </details>`;
+}
+
+/* ---------------- Shop ---------------- */
+function viewShop() {
+  if (S.shopPerson) return viewShopPerson();
+  let html = `<h2>Shop</h2><p class="sub">Pick someone to see their list. Tap <strong>I'll get this</strong> so nobody doubles up.</p>`;
+  const groups = S.households.map(h => ({ h, people: S.people.filter(p => p.household_id === h.id) }));
+  const loose = S.people.filter(p => !p.household_id);
+  if (loose.length) groups.push({ h: { name: 'Everyone else' }, people: loose });
+  for (const g of groups) {
+    if (!g.people.length) continue;
+    html += `<h3>${esc(g.h.name)}</h3><div class="people">`;
+    for (const p of g.people) {
+      const self = p.id === S.me.id;
+      html += `<button class="person ${self ? 'self' : ''}" data-act="${self ? 'tab' : 'shopperson'}" data-tab="mine" data-id="${p.id}">
+        <div class="em">${esc(p.emoji)}</div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="ct">${self ? "That's you" : p.count ? `${p.count} wish${p.count === 1 ? '' : 'es'} · <strong>${p.open}</strong> open` : 'No wishes yet'}</div>
+      </button>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function viewShopPerson() {
+  const p = person(S.shopPerson);
+  const L = S.shopList;
+  let html = `<button class="linkbtn back" data-act="shopback">‹ Everyone</button>`;
+  html += `<h2>${esc(p?.emoji || '')} ${esc(p?.name || '')}</h2>`;
+  if (!L || L.person.id !== S.shopPerson) return html + `<div class="spinner"></div>`;
+  const managers = p.managers?.length && !p.has_link ? `<p class="sub">${esc(p.managers.join(' & '))} manage${p.managers.length === 1 ? 's' : ''} this list.</p>` : '';
+  html += managers;
+  html += sizesCard(L.person, false);
+  const items = L.items.filter(it => !S.availOnly || it.claims.some(c => c.mine) || it.remaining === null || it.remaining > 0);
+  html += `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <label class="toggle" style="padding:6px 0"><input type="checkbox" data-act="availonly" ${S.availOnly ? 'checked' : ''}> Hide things already taken</label>
+  </div>`;
+  if (!L.items.length) html += emptyState('🕯️', `${p.name} hasn't added anything yet`, 'You can still add an off-list gift below so others know.');
+  html += items.map(it => shopItem(it, p)).join('');
+  html += `<button class="btn outline block" data-act="addsecret" style="margin-top:8px">🤫 Add an off-list gift for ${esc(p.name)}</button>
+    <p class="hint">Off-list gifts are hidden from ${esc(p.name)} but everyone else sees them, so nobody buys the same surprise.</p>`;
+  return html;
+}
+
+function shopItem(it, p) {
+  const mineClaim = it.claims.find(c => c.mine);
+  const others = it.claims.filter(c => !c.mine);
+  const full = it.remaining !== null && it.remaining <= 0;
+  let status = '', acts = '';
+  if (it.removed) {
+    status = `<div class="banner gone">${esc(first(p.name))} took this off their list. ${mineClaim?.status === 'bought' ? "You already bought it, so it's your call." : 'You can let it go.'}</div>`;
+  }
+  if (mineClaim) {
+    status += mineClaim.status === 'bought'
+      ? `<div class="status bought">✅ You bought this${mineClaim.qty > 1 ? ` (×${mineClaim.qty})` : ''}</div>`
+      : `<div class="status mine">🎁 You called dibs${mineClaim.qty > 1 ? ` on ${mineClaim.qty}` : ''}</div>`;
+    if (mineClaim.changed && !it.removed) status += `<div class="banner warn">⚠️ ${esc(first(p.name))} changed this after you claimed it. Double-check the details. <button class="linkbtn" data-act="ack" data-claim="${mineClaim.id}">Got it</button></div>`;
+    acts += mineClaim.status === 'bought'
+      ? `<button class="btn ghost small" data-act="claimact" data-claim="${mineClaim.id}" data-do="unbought">Not bought yet</button>`
+      : `<button class="btn primary small" data-act="claimact" data-claim="${mineClaim.id}" data-do="bought">Mark bought</button>`;
+    acts += `<button class="btn ghost small" data-act="claimact" data-claim="${mineClaim.id}" data-do="release">Never mind</button>`;
+  }
+  if (others.length) {
+    status += `<div class="status taken">${others.map(c => c.status === 'bought'
+      ? `✅ Bought by ${esc(c.name)}${c.qty > 1 ? ` (×${c.qty})` : ''}`
+      : `🎁 ${esc(c.name)} is getting this${c.qty > 1 ? ` (×${c.qty})` : ''}`).join('<br>')}</div>`;
+  }
+  if (!it.removed && !full) {
+    const left = it.remaining === null ? 'as many as you like' : it.remaining;
+    const multi = it.remaining === null || it.remaining > 1;
+    acts = `<button class="btn claim ${mineClaim ? 'small' : ''}" data-act="claim" data-id="${it.id}" data-multi="${multi ? 1 : 0}" data-left="${it.remaining ?? ''}">
+      ${mineClaim ? 'Get more' : "I'll get this"}</button>` + acts;
+    if (it.claims.length && it.qty !== 1) status += `<div class="status taken" style="font-weight:500">${left === 'as many as you like' ? 'Still open for more' : `${left} still open`}</div>`;
+  }
+  if (it.can_edit_secret) acts += `<button class="btn ghost small" data-act="editsecret" data-id="${it.id}">Edit</button>`;
+  const dim = full && !mineClaim && !it.removed;
+  return `<div class="card item ${dim ? 'dim' : ''}">
+    ${thumb(it)}
+    <div class="body">
+      ${it.secret ? `<div class="banner secret">🤫 Off-list gift${it.secret_by ? ' from ' + esc(it.secret_by) : ''}. Hidden from ${esc(first(p.name))}.</div>` : ''}
+      ${details(it)}
+      ${status}
+      ${acts ? `<div class="actions">${acts}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ---------------- My Shopping ---------------- */
+function viewShopping() {
+  const D = S.shopping;
+  const hh = S.households.find(h => h.id === S.me.household_id);
+  const hhCount = S.people.filter(p => p.household_id && p.household_id === S.me.household_id).length;
+  let html = `<h2>My shopping</h2>`;
+  if (hh && hhCount > 1) {
+    html += `<div class="seg">
+      <button class="${S.shopScope === 'me' ? 'on' : ''}" data-act="scope" data-scope="me">Just me</button>
+      <button class="${S.shopScope === 'household' ? 'on' : ''}" data-act="scope" data-scope="household">Our household</button>
+    </div>`;
+    if (S.shopScope === 'household') html += `<p class="sub">Everything ${esc(hh.name)} is getting for others. Gifts for you stay hidden.</p>`;
+  }
+  if (!D) return html + `<div class="spinner"></div>`;
+  const rows = D.rows;
+  if (!rows.length) return html + emptyState('🛍️', 'Nothing claimed yet', 'Go to Shop and tap "I\'ll get this" on something.');
+  const line = r => (r.item.price ? Number(r.item.price) * r.qty : 0);
+  const toBuy = rows.filter(r => r.status === 'claimed' && !r.removed);
+  const bought = rows.filter(r => r.status === 'bought');
+  const total = rows.filter(r => !(r.removed && r.status !== 'bought')).reduce((a, r) => a + line(r), 0);
+  html += `<div class="totals">
+    <div class="card t"><div class="n">${toBuy.length}</div><div class="l">To buy</div></div>
+    <div class="card t"><div class="n">${bought.length}</div><div class="l">Bought</div></div>
+    <div class="card t"><div class="n">${money(total) || '$0'}</div><div class="l">Est. total</div></div>
+  </div>`;
+  const byWho = new Map();
+  rows.forEach(r => { if (!byWho.has(r.recipient.id)) byWho.set(r.recipient.id, []); byWho.get(r.recipient.id).push(r); });
+  for (const [, list] of byWho) {
+    const rcp = list[0].recipient;
+    const sub = list.reduce((a, r) => a + line(r), 0);
+    html += `<div class="grp-head"><span style="font-size:24px">${esc(rcp.emoji)}</span><span class="nm">For ${esc(rcp.name)}</span><span class="sum">${sub ? money(sub) : ''}</span></div>`;
+    list.sort((a, b) => (a.status === 'bought') - (b.status === 'bought'));
+    html += list.map(r => shoppingRow(r)).join('');
+  }
+  return html;
+}
+
+function shoppingRow(r) {
+  const it = r.item, rcp = r.recipient;
+  const who = S.shopScope === 'household' ? (r.mine ? 'You' : esc(r.claimer)) : '';
+  let banners = '';
+  if (r.removed) banners += `<div class="banner gone">${esc(first(rcp.name))} took this off their list.${r.status === 'bought' ? ' Already bought, so your call.' : ''}</div>`;
+  else if (r.changed) banners += `<div class="banner warn">⚠️ ${esc(first(rcp.name))} changed this after it was claimed. <button class="linkbtn" data-act="ack" data-claim="${r.claim_id}">Got it</button></div>`;
+  const acts = (r.status === 'bought'
+      ? `<button class="btn ghost small" data-act="claimact" data-claim="${r.claim_id}" data-do="unbought">Not bought yet</button>`
+      : r.removed ? '' : `<button class="btn primary small" data-act="claimact" data-claim="${r.claim_id}" data-do="bought">Mark bought</button>`)
+    + `<button class="btn ghost small" data-act="claimact" data-claim="${r.claim_id}" data-do="release">${r.removed ? 'Remove' : 'Never mind'}</button>`;
+  return `<div class="card item ${r.status === 'bought' ? 'dim' : ''}" style="${r.status === 'bought' ? 'opacity:.75' : ''}">
+    ${thumb(it)}
+    <div class="body">
+      ${it.secret ? `<div class="banner secret">🤫 Off-list gift</div>` : ''}
+      ${details({ ...it, qty: 1 })}
+      <div class="status ${r.status === 'bought' ? 'bought' : 'mine'}">${r.status === 'bought' ? '✅ Bought' : '🎁 To buy'}${r.qty > 1 ? ` ×${r.qty}` : ''}${who ? ` · ${who}` : ''}</div>
+      ${banners}
+      <div class="actions">${acts}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- sheets ---------------- */
+function openSheet(inner) {
+  closeSheet();
+  const s = document.createElement('div');
+  s.className = 'scrim';
+  s.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${inner}</div>`;
+  s.addEventListener('click', e => { if (e.target === s) closeSheet(); });
+  document.body.appendChild(s);
+  document.body.style.overflow = 'hidden';
+  return s;
+}
+function closeSheet() {
+  document.querySelectorAll('.scrim').forEach(s => s.remove());
+  document.body.style.overflow = '';
+}
+
+function showIntro() {
+  lsSet('dibs.intro.' + S.me.id, '1');
+  openSheet(`
+    <h2>Hi ${esc(S.me.name)}! ${esc(S.me.emoji)}</h2>
+    <p>Here's how Dibs works:</p>
+    <ol class="how">
+      <li><strong>My List:</strong> add things you'd like. Sizes, colors and links all help.</li>
+      <li><strong>Shop:</strong> look at everyone else's lists and tap <strong>I'll get this</strong> on anything you're buying. Everyone else sees it's taken.</li>
+      <li><strong>My Shopping:</strong> your to-buy list. Mark things bought as you go.</li>
+    </ol>
+    <p>🤫 <strong>Your list stays a surprise.</strong> You will never see who's getting what for you.</p>
+    <p class="sub">Tip: add this page to your Home Screen so it's one tap away.</p>
+    <div class="foot"><button class="btn primary" data-act="introok">Got it</button></div>`);
+}
+
+function itemForm(it, opts) {
+  it = it || { qty: 1 };
+  const noLimit = it.qty === null;
+  const qty = noLimit ? 1 : (it.qty || 1);
+  const title = opts.secret ? `Off-list gift for ${esc(opts.ownerName)}`
+    : it.id ? 'Edit wish' : (opts.ownerId === S.me.id ? 'Add a wish' : `Add to ${esc(opts.ownerName)}'s list`);
+  const s = openSheet(`
+    <h2>${title}</h2>
+    ${opts.secret ? `<p class="sub">${esc(opts.ownerName)} won't see this. Everyone else will, so nobody buys the same thing. It goes right onto your shopping list.</p>` : ''}
+    <form id="itemform" autocomplete="off">
+      <label class="f">Link <span class="opt">(optional, any store)</span></label>
+      <input class="in" name="url" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="Paste a link" value="${esc(it.url || '')}">
+      <div class="lookup" id="lookup"></div>
+      <label class="f">What is it?</label>
+      <input class="in" name="title" required maxlength="200" placeholder="e.g. Cozy robe" value="${esc(it.title || '')}">
+      <label class="f">About how much? <span class="opt">(optional)</span></label>
+      <input class="in" name="price" inputmode="decimal" placeholder="$" value="${it.price ?? ''}">
+      <div class="row2">
+        <div><label class="f">Size <span class="opt">(opt.)</span></label><input class="in" name="size" maxlength="80" value="${esc(it.size || '')}"></div>
+        <div><label class="f">Color <span class="opt">(opt.)</span></label><input class="in" name="color" maxlength="80" value="${esc(it.color || '')}"></div>
+      </div>
+      ${opts.secret ? '' : `
+      <label class="f">How many?</label>
+      <div class="stepper" id="qtywrap" style="${noLimit ? 'opacity:.4' : ''}">
+        <button type="button" class="iconbtn" data-step="-1">−</button><span class="num" id="qty">${qty}</span><button type="button" class="iconbtn" data-step="1">＋</button>
+      </div>
+      <label class="toggle"><input type="checkbox" name="nolimit" ${noLimit ? 'checked' : ''}> No limit (socks, golf balls, gift cards…)</label>
+      <label class="toggle"><input type="checkbox" name="starred" ${it.starred ? 'checked' : ''}> <span>★ I <em>really</em> want this</span></label>
+      <label class="toggle"><input type="checkbox" name="flexible" ${it.flexible ? 'checked' : ''}> Anything similar is fine</label>`}
+      <label class="f">Notes <span class="opt">(optional)</span></label>
+      <textarea class="in" name="notes" maxlength="1000" placeholder="e.g. The blue one, NOT navy">${esc(it.notes || '')}</textarea>
+      <details class="more" ${it.image_url ? 'open' : ''}><summary>Add a photo link</summary>
+        <label class="f">Photo link <span class="opt">(optional)</span></label>
+        <input class="in" name="image_url" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="Right-click or long-press a photo, copy image address" value="${esc(it.image_url || '')}">
+        <div id="imgprev">${safeUrl(it.image_url) ? `<img class="preview-img" src="${esc(it.image_url)}" referrerpolicy="no-referrer" alt="">` : ''}</div>
+      </details>
+      <div class="foot">
+        <button type="button" class="btn ghost" data-act="close">Cancel</button>
+        <button type="submit" class="btn primary">${it.id ? 'Save' : 'Add'}</button>
+      </div>
+      ${it.id ? `<button type="button" class="btn outline block" data-act="removeitem" data-id="${it.id}" style="margin-top:12px;color:var(--red)">Remove from list</button>` : ''}
+    </form>`);
+
+  const f = s.querySelector('#itemform');
+  let q = qty;
+  s.querySelectorAll('[data-step]').forEach(b => b.onclick = () => {
+    if (f.nolimit?.checked) return;
+    q = Math.min(99, Math.max(1, q + Number(b.dataset.step)));
+    s.querySelector('#qty').textContent = q;
+  });
+  if (f.nolimit) f.nolimit.onchange = () => s.querySelector('#qtywrap').style.opacity = f.nolimit.checked ? .4 : 1;
+  const urlIn = f.url;
+  const lookup = () => linkLookup(urlIn.value, f, s.querySelector('#lookup'));
+  urlIn.addEventListener('paste', () => setTimeout(lookup, 50));
+  urlIn.addEventListener('change', lookup);
+  f.image_url.addEventListener('change', () => {
+    const u = safeUrl(f.image_url.value.trim());
+    s.querySelector('#imgprev').innerHTML = u ? `<img class="preview-img" src="${esc(u)}" referrerpolicy="no-referrer" alt="">` : '';
+  });
+  if (!it.id) setTimeout(() => urlIn.focus(), 250);
+
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const btn = f.querySelector('[type=submit]');
+    btn.disabled = true;
+    const payload = {
+      id: it.id || null,
+      owner_id: opts.ownerId,
+      title: f.title.value, url: f.url.value, price: f.price.value,
+      size: f.size.value, color: f.color.value, notes: f.notes.value, image_url: f.image_url.value,
+      secret: !!opts.secret,
+    };
+    if (!opts.secret) {
+      payload.qty = f.nolimit.checked ? null : q;
+      payload.starred = f.starred.checked;
+      payload.flexible = f.flexible.checked;
+    } else if (it.id) {
+      payload.qty = it.qty; payload.starred = it.starred; payload.flexible = it.flexible;
+    }
+    try {
+      await attempt(() => rpc('wl_save_item', { p_item: payload }), it.id ? 'Saved' : 'Added ✓');
+      closeSheet();
+      await refresh();
+    } catch { btn.disabled = false; }
+  };
+}
+
+let lookupSeq = 0;
+async function linkLookup(raw, f, el) {
+  let u = (raw || '').trim();
+  if (!u) return;
+  if (!/^https?:\/\//i.test(u) && /^[^\s/:]+\.[^\s]+/.test(u)) u = 'https://' + u;
+  if (!safeUrl(u) || !PREVIEW_FUNCTION) return;
+  const seq = ++lookupSeq;
+  el.textContent = 'Looking up that link…';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/${PREVIEW_FUNCTION}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: S.key, url: u }),
+    });
+    if (seq !== lookupSeq) return;
+    if (!r.ok) throw 0;
+    const d = await r.json();
+    let filled = [];
+    if (d.title && !f.title.value.trim()) { f.title.value = d.title.slice(0, 200); filled.push('name'); }
+    if (d.price && !f.price.value.trim()) { f.price.value = d.price; filled.push('price'); }
+    if (d.image && !f.image_url.value.trim()) {
+      f.image_url.value = d.image; filled.push('photo');
+      f.closest('.sheet').querySelector('#imgprev').innerHTML = `<img class="preview-img" src="${esc(d.image)}" referrerpolicy="no-referrer" alt="">`;
+    }
+    el.textContent = filled.length ? `Filled in the ${filled.join(', ')} for you. Change anything that's off.` : '';
+  } catch {
+    if (seq === lookupSeq) el.textContent = '';
+  }
+}
+
+function cardForm(p) {
+  const card = p.card || {};
+  const EMOJIS = ['🎄','⭐','🦌','🔔','☃️','🍪','🦄','🚀','🎅','🤶','🧦','🛷','🎁','❄️','🕯️','🧁','⛳','🏈','🏀','⚽','🎣','🎸','📚','🐶','🐱','🦖','🌵','🌻','☕','🎮'];
+  const s = openSheet(`
+    <h2>${p.id === S.me.id ? 'My' : esc(p.name) + "'s"} sizes &amp; favorites</h2>
+    <p class="sub">Fill in whatever helps. Leave the rest blank.</p>
+    <form id="cardform">
+      <label class="f">Picture</label>
+      <div class="emojis">${EMOJIS.map(e => `<button type="button" data-emoji="${e}" class="${e === p.emoji ? 'on' : ''}">${e}</button>`).join('')}</div>
+      ${CARD_FIELDS.map(([k, l]) => `<label class="f">${l}</label>
+        ${['likes', 'no', 'other'].includes(k)
+          ? `<textarea class="in" name="${k}" maxlength="400">${esc(card[k] || '')}</textarea>`
+          : `<input class="in" name="${k}" maxlength="120" value="${esc(card[k] || '')}">`}`).join('')}
+      <div class="foot">
+        <button type="button" class="btn ghost" data-act="close">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+  let emoji = p.emoji;
+  s.querySelectorAll('[data-emoji]').forEach(b => b.onclick = () => {
+    emoji = b.dataset.emoji;
+    s.querySelectorAll('[data-emoji]').forEach(x => x.classList.toggle('on', x === b));
+  });
+  const f = s.querySelector('#cardform');
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const c = {};
+    CARD_FIELDS.forEach(([k]) => { const v = f[k].value.trim(); if (v) c[k] = v; });
+    try {
+      await attempt(() => rpc('wl_save_profile', { p_person: p.id, p_card: c, p_emoji: emoji }), 'Saved');
+      closeSheet();
+      await refresh();
+    } catch {}
+  };
+}
+
+function claimQtySheet(id, left) {
+  const max = left ? Number(left) : 99;
+  let q = 1;
+  const s = openSheet(`
+    <h2>How many are you getting?</h2>
+    <p class="sub">${left ? `${left} still open.` : 'They want as many as people like.'}</p>
+    <div class="stepper" style="justify-content:center;margin:20px 0">
+      <button type="button" class="iconbtn" data-step="-1">−</button><span class="num" id="cq">1</span><button type="button" class="iconbtn" data-step="1">＋</button>
+    </div>
+    <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn claim" id="cqgo">I'll get ${'this'}</button></div>`);
+  s.querySelectorAll('[data-step]').forEach(b => b.onclick = () => {
+    q = Math.min(max, Math.max(1, q + Number(b.dataset.step)));
+    s.querySelector('#cq').textContent = q;
+  });
+  s.querySelector('#cqgo').onclick = () => { closeSheet(); doClaim(id, q); };
+}
+
+async function doClaim(id, qty) {
+  try {
+    await attempt(() => rpc('wl_claim', { p_item: id, p_qty: qty }), 'Dibs! Added to My Shopping 🎁');
+  } catch {}
+  await refresh();
+}
+
+/* ---------------- actions ---------------- */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const act = b.dataset.act;
+  if (act === 'availonly') return;   // handled by change
+  switch (act) {
+    case 'tab':
+      S.tab = b.dataset.tab; lsSet('dibs.tab', S.tab);
+      if (S.tab === 'shop') S.shopPerson = null;
+      render(); window.scrollTo(0, 0); refresh(true); break;
+    case 'listfor':
+      S.listFor = b.dataset.id; S.list = null; render(); refresh(); break;
+    case 'shopperson':
+      S.shopPerson = b.dataset.id; S.shopList = null; render(); window.scrollTo(0, 0); refresh(); break;
+    case 'shopback':
+      S.shopPerson = null; render(); window.scrollTo(0, 0); break;
+    case 'scope':
+      S.shopScope = b.dataset.scope; S.shopping = null; render(); refresh(); break;
+    case 'add': {
+      const o = person(S.listFor) || S.me;
+      itemForm(null, { ownerId: S.listFor, ownerName: o.name }); break;
+    }
+    case 'edit': {
+      const it = S.list.items.find(x => x.id === b.dataset.id);
+      const o = person(S.listFor) || S.me;
+      itemForm(it, { ownerId: S.listFor, ownerName: o.name }); break;
+    }
+    case 'addsecret': {
+      const o = person(S.shopPerson);
+      itemForm(null, { ownerId: o.id, ownerName: o.name, secret: true }); break;
+    }
+    case 'editsecret': {
+      const it = S.shopList.items.find(x => x.id === b.dataset.id);
+      const o = person(S.shopPerson);
+      itemForm(it, { ownerId: o.id, ownerName: o.name, secret: true }); break;
+    }
+    case 'removeitem':
+      if (!confirm('Remove this from the list?')) return;
+      try { await attempt(() => rpc('wl_remove_item', { p_item: b.dataset.id }), 'Removed'); closeSheet(); await refresh(); } catch {}
+      break;
+    case 'move': {
+      const items = S.list.items.slice();
+      const i = items.findIndex(x => x.id === b.dataset.id), j = i + Number(b.dataset.dir);
+      if (j < 0 || j >= items.length) return;
+      [items[i], items[j]] = [items[j], items[i]];
+      S.list.items = items; render();
+      try { await rpc('wl_reorder', { p_owner: S.listFor, p_ids: items.map(x => x.id) }); } catch (err) { toast(err.message, true); refresh(); }
+      break;
+    }
+    case 'editcard':
+      cardForm(S.list.person); break;
+    case 'claim':
+      if (b.dataset.multi === '1') claimQtySheet(b.dataset.id, b.dataset.left);
+      else doClaim(b.dataset.id, 1);
+      break;
+    case 'claimact': {
+      const what = b.dataset.do;
+      if (what === 'release' && !confirm("Let this go so someone else can get it?")) return;
+      const msg = { bought: 'Marked bought ✅', unbought: 'Moved back to To buy', release: 'Released' }[what];
+      try { await attempt(() => rpc('wl_claim_action', { p_claim: b.dataset.claim, p_action: what }), msg); } catch {}
+      await refresh(); break;
+    }
+    case 'ack':
+      try { await rpc('wl_claim_action', { p_claim: b.dataset.claim, p_action: 'ack' }); } catch (err) { toast(err.message, true); }
+      await refresh(); break;
+    case 'introok':
+      lsSet('dibs.intro.' + S.me.id, '1'); closeSheet(); break;
+    case 'close':
+      closeSheet(); break;
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.matches('[data-act="availonly"]')) { S.availOnly = e.target.checked; render(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+boot();
+</script>
+</body>
+</html>

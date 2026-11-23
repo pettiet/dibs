@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -241,6 +241,29 @@ ol.how li { margin-bottom: 10px; }
 .tour-dots { display: flex; gap: 6px; justify-content: center; margin: 16px 0 12px; }
 .tour-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .tour-dots span.on { background: var(--green); width: 22px; border-radius: 4px; }
+.tour-bubble { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; }
+.tour-title, .tour-dots, .tour-btns { flex: 0 0 auto; }
+.tour-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.hs { list-style: none; margin: 4px 0 0; padding: 0; counter-reset: hs; }
+.hs li { counter-increment: hs; position: relative; padding: 0 0 10px 40px; }
+.hs li::before { content: counter(hs); position: absolute; left: 0; top: 0; width: 29px; height: 29px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.hs .say { font-size: 17px; line-height: 1.35; }
+.hs .tip { font-size: 14px; color: var(--muted); margin-top: 6px; }
+/* little look-alike pictures of the phone's own buttons and menus */
+.pic { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px; border-radius: 14px; background: #E9E9EE; color: #111; font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.pic svg { width: 21px; height: 21px; flex: 0 0 auto; }
+.pic .addr { flex: 1; min-width: 0; background: #fff; border-radius: 999px; padding: 7px 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.pic .dots { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900; letter-spacing: 1px; font-size: 15px; }
+.pic .dots.v { letter-spacing: 0; font-size: 20px; line-height: 1; }
+.pic .mrow { flex: 1; min-width: 0; background: #fff; border-radius: 10px; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 500; }
+.pic .then { flex: 0 0 auto; color: #777; font-weight: 800; }
+.pic .tap { box-shadow: 0 0 0 3px var(--red); }
+.pic .bar { flex: 1; display: flex; align-items: center; justify-content: space-between; background: #fff; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+.pic .bar b { font-weight: 700; }
+.pic .bar .go { color: #0A7AFF; font-weight: 700; padding: 3px 9px; border-radius: 8px; }
+.pic .bar .no { color: #0A7AFF; }
+.hs-done { display: flex; align-items: center; gap: 12px; margin-top: 2px; font-size: 16px; }
+.hs-done img { width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
 .tour-btns { display: flex; gap: 10px; }
 .tour-btns .btn { flex: 1; }
 .tour-btns .btn.wide { flex: 2; }
@@ -634,6 +657,52 @@ if (window.visualViewport) {
 }
 
 /* ----- guided tour: points at each tab ----- */
+/* ----- "put Dibs on your Home Screen" step: shown on phones and tablets that haven't done it yet ----- */
+const IC_SHARE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M7 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg>`;
+const IC_PLUSBOX = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg>`;
+function deviceKind() {
+  const ua = navigator.userAgent || '';
+  const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (standalone) return 'installed';
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios) return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios-safari';
+  if (/Android/.test(ua)) return 'android';
+  return 'computer';
+}
+function homeScreenStep() {
+  const kind = deviceKind();
+  if (kind === 'installed' || kind === 'computer') return null;
+  const site = esc(location.hostname || 'dibs');
+  let steps;
+  if (kind === 'android') {
+    steps = `
+      <li><div class="say">Tap the <strong>three dots</strong> at the top right of the screen.</div>
+        <div class="pic"><span class="addr">${site}</span><span class="dots v tap">⋮</span></div></li>
+      <li><div class="say">Tap <strong>Add to Home screen</strong>.</div>
+        <div class="pic"><span class="mrow tap">Add to Home screen ${IC_PLUSBOX}</span></div>
+        <div class="tip">It might say "Install app" instead. Same thing.</div></li>
+      <li><div class="say">Tap <strong>Add</strong>.</div></li>`;
+  } else {
+    const first = kind === 'ios-safari'
+      ? `<li><div class="say">Tap the <strong>three dots</strong> next to the web address, then tap <strong>Share</strong>.</div>
+          <div class="pic"><span class="dots tap">•••</span><span class="then">then</span><span class="mrow tap">Share ${IC_SHARE}</span></div>
+          <div class="tip">Already see this ${IC_SHARE.replace('<svg ', '<svg style="width:16px;height:16px;vertical-align:-3px" ')} button at the bottom? Just tap it.</div></li>`
+      : `<li><div class="say">Tap the <strong>Share</strong> button at the top of the screen.</div>
+          <div class="pic"><span class="addr">${site}</span><span class="dots tap">${IC_SHARE}</span></div></li>`;
+    steps = `${first}
+      <li><div class="say">Scroll down the list and tap <strong>Add to Home Screen</strong>.</div>
+        <div class="pic"><span class="mrow tap">Add to Home Screen ${IC_PLUSBOX}</span></div></li>
+      <li><div class="say">Tap <strong>Add</strong> at the top right.</div>
+        <div class="pic"><span class="bar"><span class="no">Cancel</span><b>Add to Home Screen</b><span class="go tap">Add</span></span></div></li>`;
+  }
+  return {
+    title: '📱 Put Dibs on your phone',
+    text: `<div style="margin-bottom:10px">So Dibs opens like an app.</div>
+      <ol class="hs">${steps}</ol>
+      <div class="hs-done"><img src="icon.png" alt=""><span>You'll get this <strong>Dibs</strong> icon.</span></div>`,
+  };
+}
+
 let tourStep = -1;
 function tourSteps() {
   const managed = S.people.filter(p => p.i_manage).map(p => p.name);
@@ -646,9 +715,10 @@ function tourSteps() {
       text: `Everyone else's lists. Going to buy something? Tap the red <strong>I'll get it</strong> button so nobody else buys it too.` },
     { tab: 'shopping', title: '🛍️ My Shopping',
       text: `Everything you said you'd get, as a checklist. Tap the circle once you've bought it.` },
+    homeScreenStep(),
     { target: '.helpbtn', title: 'That\'s it!',
       text: `Tap this <strong>?</strong> any time to see this tour again.` },
-  ];
+  ].filter(Boolean);
 }
 function startTour() {
   lsSet('dibs.tour.' + S.me.id, '1');
@@ -708,7 +778,7 @@ function placeTour() {
     t.classList.add('plain');
     ring.style.display = arrow.style.display = 'none';
     bub.style.left = (vw - w) / 2 + 'px';
-    bub.style.top = Math.max(20, (vh - bub.offsetHeight) / 2) + 'px';
+    bub.style.top = Math.max(12, (vh - bub.offsetHeight) / 2) + 'px';
     bub.style.bottom = 'auto';
     return;
   }

@@ -199,6 +199,16 @@ select.in { appearance: none; -webkit-appearance: none; background-image: linear
 .banner.warn { background: var(--gold-soft); color: var(--gold); }
 .banner.secret { background: var(--green-soft); color: var(--green); }
 .banner.gone { background: var(--red-soft); color: var(--red); }
+.wants { border: 2px solid var(--gold); background: var(--gold-soft); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; }
+.wants-h { font-weight: 800; font-size: 17px; color: var(--gold); margin-bottom: 8px; }
+.wants dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 17px; }
+.wants dt { color: var(--muted); }
+.wants dd { margin: 0; font-weight: 800; color: var(--ink); word-break: break-word; white-space: pre-wrap; }
+.wants-foot { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.photo-note { font-size: 13px; color: var(--muted); text-align: center; margin: -6px 0 10px; }
+.scrim.over { z-index: 50; align-items: center; padding: 16px; }
+.scrim.over .sheet { border-radius: 22px; }
+.scrim.over .sh-foot { border-radius: 0 0 22px 22px; padding-bottom: 12px; }
 .who { font-weight: 700; margin: 10px 0; }
 .who.mine { color: var(--red); }
 .who.bought { color: var(--green); }
@@ -364,8 +374,37 @@ function metaLine(it, opts = {}) {
   if (it.price !== null && it.price !== undefined) bits.push(money(it.price));
   if (it.size) bits.push('Size ' + esc(it.size));
   if (it.color) bits.push(esc(it.color));
-  if (!opts.noQty) { if (it.qty === null) bits.push('Any number'); else if (it.qty > 1) bits.push('Wants ' + it.qty); }
+  if (!opts.noQty) {
+    if (it.qty === null) bits.push('Any number');
+    else if (it.qty > 1) bits.push(qtyText(it));
+  }
+  if (it.notes) bits.push('📝 Note');
   return bits.join(' · ');
+}
+// "Wants 2", or "1 of 2 still needed" once someone has claimed part of it.
+// (Owners never get `remaining`, so their own list always just says "Wants 2".)
+function qtyText(it) {
+  const left = it.remaining;
+  if (typeof left === 'number' && left > 0 && left < it.qty) return `${left} of ${it.qty} still needed`;
+  return 'Wants ' + it.qty;
+}
+// The specifics a shopper must not miss: size, color, notes.
+function specifics(it) {
+  const out = [];
+  if (it.size) out.push(['Size', it.size]);
+  if (it.color) out.push(['Color', it.color]);
+  if (it.notes) out.push(['Note', it.notes]);
+  return out;
+}
+function wantsBox(it, ownerName) {
+  const sp = specifics(it);
+  if (!sp.length) return '';
+  const hasPic = !!(safeUrl(it.image_url) || safeUrl(it.url));
+  return `<div class="wants">
+    <div class="wants-h">👀 ${first(ownerName)} ${it.flexible ? 'is hoping for this' : 'wants exactly this'}</div>
+    <dl>${sp.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    ${hasPic ? `<div class="wants-foot">The store's picture or page may show a different ${it.color ? 'color' : it.size ? 'size' : 'version'}. Go by what's written here.</div>` : ''}
+  </div>`;
 }
 function titleLine(it) {
   return `${it.secret ? '🤫 ' : ''}${it.starred ? '<span class="star">★</span> ' : ''}${esc(it.title)}`;
@@ -560,6 +599,22 @@ function openSheet({ title, body, foot, form }) {
   document.body.appendChild(scrim);
   document.body.style.overflow = 'hidden';
   fitScrim();
+  return scrim;
+}
+function popOver({ title, body, foot }) {
+  document.querySelectorAll('.scrim.over').forEach(s => s.remove());
+  const scrim = document.createElement('div');
+  scrim.className = 'scrim over';
+  scrim.innerHTML = `<div class="sheet" role="alertdialog" aria-modal="true">
+    <div class="sh-head"><h2>${title}</h2></div>
+    <div class="sh-body">${body}</div>
+    <div class="sh-foot">${foot}</div>
+  </div>`;
+  scrim.addEventListener('click', e => {
+    // removed on the next tick so a tapped link still opens
+    if (e.target === scrim || e.target.closest('[data-over-close]')) { e.stopPropagation(); setTimeout(() => scrim.remove(), 0); }
+  });
+  document.body.appendChild(scrim);
   return scrim;
 }
 function closeSheet() {
@@ -774,19 +829,20 @@ function detailSheet({ it, ownerName, mine, others, open, removed, changed, clai
   const img = safeUrl(it.image_url), url = safeUrl(it.url);
   const facts = [];
   if (it.price !== null && it.price !== undefined) facts.push(['Price', money(it.price)]);
-  if (it.size) facts.push(['Size', esc(it.size)]);
-  if (it.color) facts.push(['Color', esc(it.color)]);
   if (it.qty === null) facts.push(['How many', 'Any number']);
-  else if (it.qty > 1) facts.push(['How many', it.qty + (it.remaining !== undefined && it.remaining !== null ? ` (${it.remaining} still open)` : '')]);
-  let body = '';
-  if (img) body += `<img class="hero" src="${esc(img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
+  else if (it.qty > 1) facts.push(['How many', it.qty + (typeof it.remaining === 'number' ? (it.remaining > 0 ? ` (${it.remaining} still needed)` : ' (all taken)') : '')]);
+  const sp = specifics(it);
+  let body = wantsBox(it, ownerName);
+  if (img) body += `<img class="hero" src="${esc(img)}" alt="" referrerpolicy="no-referrer" onerror="this.nextElementSibling?.classList.contains('photo-note') && this.nextElementSibling.remove(); this.remove()">`
+    + (it.color || it.size ? `<p class="photo-note">Store photo. It may not show the right ${it.color ? 'color' : 'size'}.</p>` : '');
   if (it.secret) body += `<div class="banner secret">🤫 Surprise gift${it.secret_by ? ' from ' + esc(it.secret_by) : ''}. ${esc(first(ownerName))} can't see it.</div>`;
   body += `<p class="d-title">${it.starred ? '<span style="color:var(--gold)">★</span> ' : ''}${esc(it.title)}</p>`;
   if (it.starred) body += `<div class="sub" style="margin:-4px 0 6px;color:var(--gold);font-weight:700">${esc(first(ownerName))} really wants this</div>`;
   if (it.flexible) body += `<div class="sub" style="margin:-2px 0 6px">Something similar is fine too</div>`;
   if (facts.length) body += `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
-  if (it.notes) body += `<div class="notes">${esc(it.notes)}</div>`;
-  if (url) body += `<a class="btn outline block linkout" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open at ${esc(host(url))} ↗</a>`;
+  if (url) body += sp.length
+    ? `<button type="button" class="btn outline block linkout" data-act="golink">Open at ${esc(host(url))} ↗</button>`
+    : `<a class="btn outline block linkout" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open at ${esc(host(url))} ↗</a>`;
   if (removed) body += `<div class="banner gone">${esc(first(ownerName))} took this off their list.${mine?.status === 'bought' ? " You already bought it, so it's your call." : ''}</div>`;
   else if (changed) body += `<div class="banner warn">⚠️ ${esc(first(ownerName))} changed this after it was claimed. Check the details above.</div>`;
   if (mine) body += `<p class="who ${mine.status === 'bought' ? 'bought' : 'mine'}">${mine.status === 'bought' ? '✅ Bought' : "🎁 You're getting this"}${mine.qty > 1 ? ` (×${mine.qty})` : ''}${mine.label ? ' · ' + mine.label : ''}</p>`;
@@ -803,7 +859,18 @@ function detailSheet({ it, ownerName, mine, others, open, removed, changed, clai
   if (open) foot += `<button class="btn claim wide" data-act="claim" data-id="${it.id}">${mine ? 'Get more' : "I'll get it"}</button>`;
   if (it.can_edit_secret) foot += `<button class="btn ghost" data-act="editsecret" data-id="${it.id}">Edit</button>`;
   if (!foot) foot = `<button class="btn ghost" data-act="close">Close</button>`;
-  openSheet({ title: 'Details', body, foot });
+  const sheet = openSheet({ title: 'Details', body, foot });
+  // Going to the store? Remind them what to pick first.
+  const go = sheet.querySelector('[data-act="golink"]');
+  if (go) go.onclick = e => {
+    e.stopPropagation();
+    popOver({
+      title: 'Before you go',
+      body: wantsBox(it, ownerName),
+      foot: `<button type="button" class="btn ghost" data-over-close>Back</button>
+             <a class="btn primary wide" data-over-close href="${esc(url)}" target="_blank" rel="noopener noreferrer">Got it, open store ↗</a>`,
+    });
+  };
 }
 
 function openShopDetail(id) {
@@ -865,19 +932,33 @@ function viewCard(p) {
 function startClaim(id) {
   const it = S.shopList?.items.find(x => x.id === id);
   if (!it) return;
+  const owner = person(it.owner_id) || person(S.shopPerson) || { name: 'They' };
+  const who = first(owner.name);
   const multi = it.remaining === null || it.remaining > 1;
-  if (!multi) return doClaim(id, 1);
+  const sp = specifics(it);
+  if (!multi && !sp.length) return doClaim(id, 1);
   const max = it.remaining ?? 99;
   let q = 1;
+  const howMany = !multi ? '' : `
+      <p class="sub" style="text-align:center;margin-bottom:0">${
+        it.remaining === null ? `${who} would be happy with any number of these.`
+        : it.remaining < it.qty ? `${who} wants ${it.qty}. ${it.remaining} still needed.`
+        : `${who} wants ${it.qty}. Get one, some, or all of them.`}</p>
+      ${sp.length ? `<p style="text-align:center;font-weight:800;font-size:18px;margin:10px 0 0">How many will you get?</p>` : ''}
+      <div class="stepper"><button type="button" data-step="-1" aria-label="Fewer">−</button><span class="num" id="cq">1</span><button type="button" data-step="1" aria-label="More">＋</button></div>
+      ${it.remaining === null ? '' : `<p class="sub" style="text-align:center;margin:0" id="cqleft"></p>`}`;
   const s = openSheet({
-    title: 'How many?',
-    body: `<p class="sub" style="text-align:center">${it.remaining ? `${it.remaining} still open` : 'They want as many as people like'}</p>
-      <div class="stepper"><button type="button" data-step="-1">−</button><span class="num" id="cq">1</span><button type="button" data-step="1">＋</button></div>`,
-    foot: `<button class="btn ghost" data-act="close">Cancel</button><button class="btn claim wide" id="cqgo">I'll get it</button>`,
+    title: sp.length ? 'Check the details first' : 'How many will you get?',
+    body: `<p class="d-title" style="font-size:18px">${esc(it.title)}</p>${wantsBox(it, owner.name)}${howMany}`,
+    foot: `<button class="btn ghost" data-act="close">Cancel</button><button class="btn claim wide" id="cqgo">${sp.length ? "Got it, I'll get it" : "I'll get it"}</button>`,
   });
+  const left = s.querySelector('#cqleft');
+  const showLeft = () => { if (left) left.textContent = q >= max ? 'That covers all of them.' : `That leaves ${max - q} for someone else.`; };
+  showLeft();
   s.querySelectorAll('[data-step]').forEach(b => b.onclick = () => {
     q = Math.min(max, Math.max(1, q + Number(b.dataset.step)));
     s.querySelector('#cq').textContent = q;
+    showLeft();
   });
   s.querySelector('#cqgo').onclick = () => { closeSheet(); doClaim(id, q); };
 }

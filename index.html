@@ -244,6 +244,8 @@ ol.how li { margin-bottom: 10px; }
 .tour-bubble { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; }
 .tour-title, .tour-dots, .tour-btns { flex: 0 0 auto; }
 .tour-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.tips { margin: 10px 0; padding-left: 22px; }
+.tips li { margin-bottom: 6px; }
 .hs { list-style: none; margin: 4px 0 0; padding: 0; counter-reset: hs; }
 .hs li { counter-increment: hs; position: relative; padding: 0 0 10px 40px; }
 .hs li::before { content: counter(hs); position: absolute; left: 0; top: 0; width: 29px; height: 29px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; }
@@ -264,6 +266,11 @@ ol.how li { margin-bottom: 10px; }
 .pic .bar .no { color: #0A7AFF; }
 .hs-done { display: flex; align-items: center; gap: 12px; margin-top: 2px; font-size: 16px; }
 .hs-done img { width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.me-chip { border: 0; cursor: pointer; color: #fff; }
+.me-chip .lk { font-size: 13px; opacity: .85; margin-left: 2px; }
+.linkbox { width: 100%; margin: 12px 0; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: 14px; color: var(--ink); }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.stack .btn { width: 100%; text-align: center; text-decoration: none; }
 .tour-btns { display: flex; gap: 10px; }
 .tour-btns .btn { flex: 1; }
 .tour-btns .btn.wide { flex: 2; }
@@ -363,12 +370,12 @@ function render() {
   $app.innerHTML = `
     <header class="top"><div class="wrap">
       <div class="brand">Dibs<small>${esc(S.event?.name || 'Family wish list')}</small></div>
-      <div class="me-chip">${esc(S.me.emoji)} ${esc(S.me.name)}</div>
+      <button class="me-chip" data-act="mylink" aria-label="${esc(S.me.name)}: get my personal link">${esc(S.me.emoji)} ${esc(S.me.name)} <span class="lk">🔗</span></button>
       <button class="helpbtn" data-act="tour" aria-label="Show me how this works">?</button>
     </div></header>
     <nav class="tabs">
       ${tab('mine', '📝', 'My List')}
-      ${tab('shop', '🎁', 'Shop')}
+      ${tab('shop', '🎁', 'Family Lists')}
       ${tab('shopping', '🛍️', 'My Shopping', S.flags)}
     </nav>
     <main class="wrap">${!S.event ? empty('🎄', 'No wish list is open right now', 'Check back soon.')
@@ -493,7 +500,7 @@ function sizesRow(p, editable) {
 /* ---------------- Shop ---------------- */
 function viewShop() {
   if (S.shopPerson) return viewShopPerson();
-  let html = `<h2>Shop</h2><p class="sub">Tap a name to see their list.</p>`;
+  let html = `<h2>Family lists</h2><p class="sub">Tap a name to see what they want.</p>`;
   const groups = S.households.map(h => ({ name: h.name, people: S.people.filter(p => p.household_id === h.id) }));
   const loose = S.people.filter(p => !p.household_id);
   if (loose.length) groups.push({ name: 'Everyone else', people: loose });
@@ -578,12 +585,12 @@ function viewShopping() {
   }
   if (!D) return html + `<div class="spinner"></div>`;
   const rows = D.rows;
-  if (!rows.length) return html + empty('🛍️', 'Nothing yet', 'In Shop, tap "I\'ll get it" on something.');
+  if (!rows.length) return html + empty('🛍️', 'Nothing yet', 'In Family Lists, tap "I\'ll get it" on something.');
   const live = rows.filter(r => !(r.removed && r.status !== 'bought'));
   const toBuy = rows.filter(r => r.status === 'claimed').length;
   const total = live.reduce((a, r) => a + (r.item.price ? Number(r.item.price) * r.qty : 0), 0);
   html += `<div class="summary"><div>${toBuy} to buy <span>· ${rows.length - toBuy} bought</span></div><div>${total ? '~' + money(total) : ''}</div></div>
-    <p class="sub" style="margin:8px 4px 0;font-size:15px">Tap the circle when you've bought it.</p>`;
+    <p class="sub" style="margin:8px 4px 0;font-size:15px">Tap the circle when you've bought it. Changed your mind? Tap the item, then <strong>Never mind</strong>, so someone else can get it.</p>`;
 
   const groups = new Map();
   rows.forEach(r => { if (!groups.has(r.recipient.id)) groups.set(r.recipient.id, []); groups.get(r.recipient.id).push(r); });
@@ -710,12 +717,27 @@ function tourSteps() {
     { title: `Hi ${esc(S.me.name)}! ${esc(S.me.emoji)}`,
       text: `Welcome to Dibs, our family wish list. Here's a quick tour. It only takes a few seconds.` },
     { tab: 'mine', title: '📝 My List',
-      text: `This is <strong>your</strong> wish list. Tap <strong>Add a wish</strong> and paste a link from any store.${managed.length ? ` You can also switch to ${esc(managed.join(' & '))}'s list here.` : ''}<br><br>🤫 It stays a surprise. You'll never see who's buying what for you.` },
-    { tab: 'shop', title: '🎁 Shop',
-      text: `Everyone else's lists. Going to buy something? Tap the red <strong>I'll get it</strong> button so nobody else buys it too.` },
+      text: `This is what <strong>you</strong> want for Christmas. Tap <strong>Add a wish</strong> for each thing.
+        <ul class="tips">
+          <li><strong>Paste a link</strong> from the store if you can.</li>
+          <li><strong>Add the details</strong>, like color and size, so you get the right one.</li>
+          <li>Tap <strong>★ Really want it</strong> on your favorites. They go to the top with a gold star, so everyone knows.</li>
+        </ul>${managed.length ? `You can also switch to ${esc(managed.join(' & '))}'s list here.<br><br>` : ''}🤫 You'll never see who's buying what for you.` },
+    { tab: 'shop', title: '🎁 Family Lists',
+      text: `This is what <strong>everyone else</strong> wants. Tap a name to see their list.
+        <ul class="tips">
+          <li>Found something you'll buy? Tap the red <strong>I'll get it</strong> button to claim it, so nobody else buys it too.</li>
+          <li>Watch for the <strong>gold box</strong>. It shows the exact color or size they asked for.</li>
+          <li>A gold <strong>★</strong> means they really want that one.</li>
+        </ul>` },
     { tab: 'shopping', title: '🛍️ My Shopping',
-      text: `Everything you said you'd get, as a checklist. Tap the circle once you've bought it.` },
+      text: `Everything you claimed, as a shopping checklist. Tap the <strong>circle</strong> once you've bought it.
+        <ul class="tips">
+          <li><strong>Changed your mind?</strong> Tap the item, then <strong>Never mind</strong>. It goes back on their list for someone else.</li>
+        </ul>` },
     homeScreenStep(),
+    { target: '.me-chip', title: '💻 On a computer too',
+      text: `Want Dibs on your computer or tablet? Tap <strong>your name</strong> up here to get your own web address.` },
     { target: '.helpbtn', title: 'That\'s it!',
       text: `Tap this <strong>?</strong> any time to see this tour again.` },
   ].filter(Boolean);
@@ -779,7 +801,7 @@ function placeTour() {
     ring.style.display = arrow.style.display = 'none';
     bub.style.left = (vw - w) / 2 + 'px';
     bub.style.top = Math.max(12, (vh - bub.offsetHeight) / 2) + 'px';
-    bub.style.bottom = 'auto';
+    bub.style.bottom = 'auto'; bub.style.maxHeight = '';
     return;
   }
   t.classList.remove('plain');
@@ -794,9 +816,11 @@ function placeTour() {
   if (below) {
     arrow.style.top = r.bottom + 10 + 'px'; arrow.style.bottom = 'auto';
     bub.style.top = r.bottom + 72 + 'px'; bub.style.bottom = 'auto';
+    bub.style.maxHeight = Math.max(180, vh - r.bottom - 84) + 'px';
   } else {
     arrow.style.bottom = vh - r.top + 10 + 'px'; arrow.style.top = 'auto';
     bub.style.bottom = vh - r.top + 72 + 'px'; bub.style.top = 'auto';
+    bub.style.maxHeight = Math.max(180, r.top - 84) + 'px';   // never run off the top of a small phone
   }
 }
 window.addEventListener('resize', () => tourStep >= 0 && placeTour());
@@ -820,10 +844,10 @@ function itemForm(it, opts) {
       <input class="in" name="title" maxlength="200" placeholder="e.g. Cozy robe" value="${esc(it.title || '')}">
       <div class="row2">
         <div><label class="f">Price <span class="opt">(about)</span></label><input class="in" name="price" inputmode="decimal" placeholder="$" value="${it.price ?? ''}"></div>
-        <div><label class="f">Size</label><input class="in" name="size" maxlength="80" value="${esc(it.size || '')}"></div>
+        <div><label class="f">Size</label><input class="in" name="size" maxlength="80" placeholder="e.g. Large" value="${esc(it.size || '')}"></div>
       </div>
       <div class="row2">
-        <div><label class="f">Color</label><input class="in" name="color" maxlength="80" value="${esc(it.color || '')}"></div>
+        <div><label class="f">Color</label><input class="in" name="color" maxlength="80" placeholder="e.g. Black" value="${esc(it.color || '')}"></div>
         ${opts.secret ? '<div></div>' : `<div><label class="f">How many</label><select class="in" name="qty">${qtyOpts}</select></div>`}
       </div>
       <label class="f">Notes <span class="opt">(optional)</span></label>
@@ -998,6 +1022,45 @@ function viewCard(p) {
   });
 }
 
+/* ----- my personal link (for a computer, tablet or second phone) ----- */
+function myLink() { return location.origin + location.pathname + '?key=' + encodeURIComponent(S.key); }
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+    const done = document.execCommand('copy'); ta.remove(); return done;
+  } catch { return false; }
+}
+function linkSheet() {
+  const url = myLink();
+  const mail = 'mailto:?subject=' + encodeURIComponent('My Dibs link') + '&body=' + encodeURIComponent('My private Dibs link (just for me):\n\n' + url);
+  const s = openSheet({
+    title: `${esc(S.me.emoji)} ${esc(first(S.me.name))}'s link`,
+    body: `<p style="margin:0">This web address is <strong>yours</strong>. Open it on a computer, a tablet or another phone and you'll see your same lists.</p>
+      <input class="linkbox" id="mylink" readonly value="${esc(url)}" aria-label="My personal link">
+      <div class="stack">
+        <button type="button" class="btn primary" id="lcopy">Copy my link</button>
+        ${navigator.share ? `<button type="button" class="btn outline" id="lshare">Email or text it to myself</button>`
+                          : `<a class="btn outline" id="lmail" href="${esc(mail)}">Email it to myself</a>`}
+      </div>
+      <p class="sub" style="margin:14px 0 0">🔒 Keep it to yourself. Anyone with this link can use Dibs as you.</p>`,
+    foot: `<button type="button" class="btn ghost" data-act="close">Done</button>`,
+  });
+  const box = s.querySelector('#mylink');
+  box.onclick = () => { box.focus(); box.select(); };
+  s.querySelector('#lcopy').onclick = async () => {
+    if (await copyText(url)) toast('Copied ✓');
+    else { box.focus(); box.select(); toast('Press and hold the link to copy it', true); }
+  };
+  const sh = s.querySelector('#lshare');
+  if (sh) sh.onclick = async () => {
+    try { await navigator.share({ title: 'My Dibs link', text: 'My private Dibs link (just for me):', url }); }
+    catch (e) { if (e && e.name !== 'AbortError') location.href = mail; }
+  };
+}
+
 /* ----- claim ----- */
 function startClaim(id) {
   const it = S.shopList?.items.find(x => x.id === id);
@@ -1084,6 +1147,7 @@ document.addEventListener('click', async e => {
     }
     case 'close': closeSheet(); break;
     case 'tour': startTour(); break;
+    case 'mylink': linkSheet(); break;
   }
 });
 document.addEventListener('keydown', e => {

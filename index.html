@@ -966,7 +966,7 @@ function detailSheet({ it, ownerName, mine, others, open, removed, changed, clai
       title: 'Before you go',
       body: wantsBox(it, ownerName),
       foot: `<button type="button" class="btn ghost" data-over-close>Back</button>
-             <a class="btn primary wide" data-over-close href="${esc(url)}" target="_blank" rel="noopener noreferrer">Got it, open store ↗</a>`,
+             <a class="btn primary wide" data-over-close href="${esc(url)}" target="_blank" rel="noopener noreferrer">Continue to store ↗</a>`,
     });
   };
 }
@@ -1087,7 +1087,7 @@ function startClaim(id) {
   const s = openSheet({
     title: sp.length ? 'Check the details first' : 'How many will you get?',
     body: `<p class="d-title" style="font-size:18px">${esc(it.title)}</p>${wantsBox(it, owner.name)}${howMany}`,
-    foot: `<button class="btn ghost" data-act="close">Cancel</button><button class="btn claim wide" id="cqgo">${sp.length ? "Got it, I'll get it" : "I'll get it"}</button>`,
+    foot: `<button class="btn ghost" data-act="close">Cancel</button><button class="btn claim wide" id="cqgo">${sp.length ? "Yes, I'll get it" : "I'll get it"}</button>`,
   });
   const left = s.querySelector('#cqleft');
   const showLeft = () => { if (left) left.textContent = q >= max ? 'That covers all of them.' : `That leaves ${max - q} for someone else.`; };
